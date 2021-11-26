@@ -18,8 +18,8 @@
 class SimpleRender : public IRender
 {
 public:
-  const std::string VERTEX_SHADER_PATH = "../resources/shaders/simple.vert";
-  const std::string FRAGMENT_SHADER_PATH = "../resources/shaders/simple_bad_optimization.frag";
+  const std::string VERTEX_SHADER_PATH = "../src/samples/bad_optimization/shaders/simple.vert";
+  const std::string FRAGMENT_SHADER_PATH = "../src/samples/bad_optimization/shaders/simple_bad_optimization.frag";
 
   SimpleRender(uint32_t a_width, uint32_t a_height);
   ~SimpleRender()  { Cleanup(); };
