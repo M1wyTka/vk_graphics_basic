@@ -23,9 +23,10 @@ struct UniformParams
 {
   mat4  lightMatrix;
   vec3  lightPos;
-  float time;
   vec3  baseColor;
-  bool animateLightColor;
+  vec2  screenSize;
+  float time;
+  bool  animateLightColor;
 };
 
 #endif //VK_GRAPHICS_BASIC_COMMON_H

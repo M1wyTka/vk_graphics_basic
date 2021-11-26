@@ -18,7 +18,7 @@
 class SimpleRender : public IRender
 {
 public:
-  const std::string VERTEX_SHADER_PATH       = "../resources/shaders/simple.vert";
+  const std::string VERTEX_SHADER_PATH       = "../resources/shaders/split.vert";
   const std::string SPLIT_FRAG_SHADER_PATH   = "../resources/shaders/split.frag";
   const std::string RESOLVE_FRAG_SHADER_PATH = "../resources/shaders/resolve.frag";
   const std::string RESOLVE_VERT_SHADER_PATH = "../resources/shaders/resolve.vert";
@@ -115,8 +115,6 @@ protected:
   {
     LiteMath::float4x4 projView;
     LiteMath::float4x4 model;
-    LiteMath::float4 color;
-    LiteMath::float2 screenSize;
   } pushConst2M;
 
   struct

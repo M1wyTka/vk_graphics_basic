@@ -217,7 +217,6 @@ SimpleRender::SimpleRender(uint32_t a_width, uint32_t a_height) : m_width(a_widt
 #else
   m_enableValidation = true;
 #endif
-  pushConst2M.screenSize = vec2(a_width, a_height);
   resolvePushConst.screenSize = vec2(a_width, a_height);
 }
 
@@ -437,6 +436,7 @@ void SimpleRender::CreateUniformBuffer()
   m_uniforms.lightPos          = LiteMath::float3(0.0f, 1.0f, 1.0f);
   m_uniforms.baseColor         = LiteMath::float3(0.9f, 0.92f, 1.0f);
   m_uniforms.animateLightColor = true;
+  m_uniforms.screenSize        = vec2(m_width, m_height);
 
   UpdateUniformBuffer(0.0f);
 }
@@ -492,22 +492,12 @@ void SimpleRender::BuildSplitCommandBuffer(VkCommandBuffer a_cmdBuff, VkFramebuf
     vkCmdBindVertexBuffers(a_cmdBuff, 0, 1, &vertexBuf, &zero_offset);
     vkCmdBindIndexBuffer(a_cmdBuff, indexBuf, 0, VK_INDEX_TYPE_UINT32);
 
-    std::vector<float4> colors = {
-      float4(0.0, 0.0, 1.0, 1.0),
-      float4(0.0, 1.0, 0.0, 1.0),
-      float4(0.0, 1.0, 1.0, 1.0),
-      float4(1.0, 0.0, 0.0, 1.0),
-      float4(1.0, 0.0, 1.0, 1.0),
-      float4(1.0, 1.0, 0.0, 1.0),
-      float4(1.0, 1.0, 1.0, 1.0)
-    };
 
     for (uint32_t i = 0; i < m_pScnMgr->InstancesNum(); ++i)
     {
       auto inst = m_pScnMgr->GetInstanceInfo(i);
 
       pushConst2M.model = m_pScnMgr->GetInstanceMatrix(i);
-      pushConst2M.color = colors[i % colors.size()];
       vkCmdPushConstants(a_cmdBuff, m_splitImgPipeline.layout, stageFlags, 0, sizeof(pushConst2M), &pushConst2M);
 
       auto mesh_info = m_pScnMgr->GetMeshInfo(inst.mesh_id);
