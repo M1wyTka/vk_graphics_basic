@@ -231,7 +231,7 @@ void SimpleShadowmapRender::SetupSimplePipeline()
 void SimpleShadowmapRender::CreateUniformBuffer()
 {
   VkMemoryRequirements memReq;
-  m_ubo = vk_utils::createBuffer(m_device, sizeof(UniformParams), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &memReq);
+  m_ubo = vk_utils::createBuffer(m_device, sizeof(UniformParamsFL), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &memReq);
 
   VkMemoryAllocateInfo allocateInfo = {};
   allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -255,7 +255,12 @@ void SimpleShadowmapRender::UpdateUniformBuffer(float a_time)
   m_uniforms.lightPos    = m_light.cam.pos; //LiteMath::float3(sinf(a_time), 1.0f, cosf(a_time));
   m_uniforms.time        = a_time;
 
-  m_uniforms.baseColor = LiteMath::float3(0.9f, 0.92f, 1.0f);
+  m_uniforms.baseColor = LiteMath::float3(1.0f, 1.0f, 1.0f);
+  m_uniforms.lightDir  = m_light.cam.forward();
+  m_uniforms.outerCone = cos(LiteMath::DEG_TO_RAD*17.5f);
+  m_uniforms.innerCone = cos(LiteMath::DEG_TO_RAD*5.0f);
+
+  m_uniforms.lightDist = 10.0f;
   memcpy(m_uboMappedMem, &m_uniforms, sizeof(m_uniforms));
 }
 

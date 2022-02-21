@@ -92,7 +92,7 @@ private:
   float4x4 m_worldViewProj;
   float4x4 m_lightMatrix;    
 
-  UniformParams m_uniforms {};
+  UniformParamsFL m_uniforms {};
   VkBuffer m_ubo = VK_NULL_HANDLE;
   VkDeviceMemory m_uboAlloc = VK_NULL_HANDLE;
   void* m_uboMappedMem = nullptr;
@@ -149,7 +149,7 @@ private:
   {
     ShadowMapCam() 
     {  
-      cam.pos    = float3(4.0f, 4.0f, 4.0f);
+      cam.pos    = float3(0.0f, 4.0f, 0.0f);
       cam.lookAt = float3(0, 0, 0);
       cam.up     = float3(0, 1, 0);
   

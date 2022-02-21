@@ -24,8 +24,21 @@ struct UniformParams
   mat4  lightMatrix;
   vec3  lightPos;
   float time;
-  vec3  baseColor;
   bool animateLightColor;
+  vec3 baseColor;
+};
+
+struct UniformParamsFL
+{
+  mat4 lightMatrix;
+  vec3 lightPos;
+  float time;
+  vec3 lightDir;
+  bool animateLightColor;
+  vec3 baseColor;
+  float lightDist;
+  float outerCone;
+  float innerCone;
 };
 
 #endif //VK_GRAPHICS_BASIC_COMMON_H
