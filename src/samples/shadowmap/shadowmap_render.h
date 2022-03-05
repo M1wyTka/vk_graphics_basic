@@ -5,6 +5,7 @@
 #include "../../render/scene_mgr.h"
 #include "../../render/render_common.h"
 #include "../../../resources/shaders/common.h"
+#include "../../render/render_gui.h"
 #include <geom/vk_mesh.h>
 #include <vk_descriptor_sets.h>
 #include <vk_fbuf_attachment.h>
@@ -18,6 +19,12 @@
 class SimpleShadowmapRender : public IRender
 {
 public:
+  const std::string VSM_FRAG_SHADER_PATH      = "../resources/shaders/shadow_depth.frag";
+  const std::string VSM_VERT_SHADER_PATH      = "../resources/shaders/quad3_vert.vert"; // I need triangle, I get triangle
+
+  const std::string SIMPLE_FRAG_SHADER_PATH   = "../resources/shaders/simple_shadow.frag";
+  const std::string SIMPLE_VERT_SHADER_PATH   = "../resources/shaders/simple.vert";
+
   SimpleShadowmapRender(uint32_t a_width, uint32_t a_height);
   ~SimpleShadowmapRender()  { Cleanup(); };
 
@@ -89,20 +96,34 @@ private:
     float4x4 model;
   } pushConst2M;
 
+  struct
+  {
+    uint32_t width;
+    uint32_t height;
+    uint32_t isVSM;
+  } pushConstVariance;
+
+  bool m_isVsm = true;
+
   float4x4 m_worldViewProj;
   float4x4 m_lightMatrix;    
 
   UniformParams m_uniforms {};
-  VkBuffer m_ubo = VK_NULL_HANDLE;
+  VkBuffer m_ubo            = VK_NULL_HANDLE;
   VkDeviceMemory m_uboAlloc = VK_NULL_HANDLE;
   void* m_uboMappedMem = nullptr;
 
+  pipeline_data_t m_shadowPipeline{};
+  pipeline_data_t m_variancePipeline{};
   pipeline_data_t m_basicForwardPipeline {};
-  pipeline_data_t m_shadowPipeline {};
 
-  VkDescriptorSet m_dSet = VK_NULL_HANDLE;
-  VkDescriptorSetLayout m_dSetLayout = VK_NULL_HANDLE;
-  VkRenderPass m_screenRenderPass = VK_NULL_HANDLE; // main renderpass
+  VkDescriptorSet m_dSet                    = VK_NULL_HANDLE;
+  VkDescriptorSetLayout m_dSetLayout        = VK_NULL_HANDLE;
+
+  VkDescriptorSet m_dVsmSet             = VK_NULL_HANDLE;
+  VkDescriptorSetLayout m_dVsmSetLayout = VK_NULL_HANDLE;
+
+  VkRenderPass m_screenRenderPass           = VK_NULL_HANDLE;// main renderpass
 
   std::shared_ptr<vk_utils::DescriptorMaker> m_pBindings = nullptr;
 
@@ -130,12 +151,19 @@ private:
   //
   std::shared_ptr<vk_utils::IQuad>               m_pFSQuad;
   //std::shared_ptr<vk_utils::RenderableTexture2D> m_pShadowMap;
-  std::shared_ptr<vk_utils::RenderTarget>        m_pShadowMap2;
-  uint32_t                                       m_shadowMapId = 0;
+  std::shared_ptr<vk_utils::RenderTarget>   m_pShadowMap2;
+  std::shared_ptr<vk_utils::RenderTarget>   m_pVarianceMap;
+
+  uint32_t m_shadowMapId = 0;
+  uint32_t m_vsmMapId = 0;
   
-  VkDeviceMemory        m_memShadowMap = VK_NULL_HANDLE;
+  VkDeviceMemory m_memShadowMap  = VK_NULL_HANDLE;
+  VkDeviceMemory m_memVsm = VK_NULL_HANDLE;
+
   VkDescriptorSet       m_quadDS; 
   VkDescriptorSetLayout m_quadDSLayout = nullptr;
+
+  VkSampler m_vsmSampler = VK_NULL_HANDLE;
 
   struct InputControlMouseEtc
   {
@@ -165,6 +193,11 @@ private:
   
   } m_light;
  
+  // Thank you Nikita for gui
+  std::shared_ptr<IRenderGUI> m_pImGuiRender;
+  void InitImguiButtons();
+  void DrawFrameWithGUI();
+
   void DrawFrameSimple();
 
   void CreateInstance();
@@ -176,11 +209,14 @@ private:
   void DrawSceneCmd(VkCommandBuffer a_cmdBuff, const float4x4& a_wvp);
 
   void SetupSimplePipeline();
+
   void CleanupPipelineAndSwapchain();
   void RecreateSwapChain();
 
   void CreateUniformBuffer();
   void UpdateUniformBuffer(float a_time);
+
+  void CreateNonDefaultSampler(VkSampler &sampler);
 
   void Cleanup();
 

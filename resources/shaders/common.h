@@ -17,6 +17,11 @@ typedef float4       vec4;
 typedef float3       vec3;
 typedef float2       vec2;
 typedef float4x4     mat4;
+
+// Thank you Roma because flag padding made me go nuts
+#define BOOL uint32_t
+#else
+#define BOOL bool
 #endif
 
 struct UniformParams
@@ -25,7 +30,9 @@ struct UniformParams
   vec3  lightPos;
   float time;
   vec3  baseColor;
-  bool animateLightColor;
+  BOOL isVSM;
+  BOOL animateLightColor;
 };
 
+#undef BOOL
 #endif //VK_GRAPHICS_BASIC_COMMON_H
