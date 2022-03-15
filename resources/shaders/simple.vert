@@ -4,6 +4,8 @@
 
 #include "unpack_attributes.h"
 
+float height = 64.0f;
+float width = 64.0f;
 
 layout(location = 0) in vec4 vPosNorm;
 layout(location = 1) in vec4 vTexCoordAndTang;
@@ -15,7 +17,7 @@ layout(push_constant) uniform params_t
 } params;
 
 
-layout (location = 0 ) out VS_OUT
+layout (location = 0) out VS_OUT
 {
     vec3 wPos;
     vec3 wNorm;
@@ -24,16 +26,46 @@ layout (location = 0 ) out VS_OUT
 
 } vOut;
 
+layout(binding = 1) uniform sampler2D diffuseTexture;
+
 out gl_PerVertex { vec4 gl_Position; };
 void main(void)
 {
-    const vec4 wNorm = vec4(DecodeNormal(floatBitsToInt(vPosNorm.w)),         0.0f);
+    // x = [0, width-1] y = [0, height-1]
+    int iWidth = int(width);
+    vec2 res = vec2((gl_VertexIndex % iWidth), (gl_VertexIndex / iWidth)); // x and z
+    vec2 coord = vec2(res.x/width, res.y/height);
+
+    vec3 wNorm = vec3(0.0f, 1.0f, 0.0f);
+    vec2 dx = vec2(1.0f, 0.0f) / width;
+    vec2 dy = vec2(0.0f, 1.0f) / height;
+
+    if(res.x > 0.0f && res.x < width-1.0f && res.y > 0.0f && res.y < height-1){
+        vec2 r = coord + dx;
+        float R = texture(diffuseTexture, r).x;
+    
+        vec2 l = coord - dx;
+        float L = texture(diffuseTexture, l).x;
+    
+        vec2 t = coord - dy;
+        float T = texture(diffuseTexture, t).x;
+    
+        vec2 b = coord + dy;
+        float B = texture(diffuseTexture, b).x;
+        
+        wNorm = normalize(vec3((R - L) / 2.0f , 1.0f, (B - T) / 2.0f));
+    }
+    //vec3 wNorm = vec3(0.0f, 1.0f, 0.0f);
     const vec4 wTang = vec4(DecodeNormal(floatBitsToInt(vTexCoordAndTang.z)), 0.0f);
 
-    vOut.wPos     = (params.mModel * vec4(vPosNorm.xyz, 1.0f)).xyz;
-    vOut.wNorm    = normalize(mat3(transpose(inverse(params.mModel))) * wNorm.xyz);
-    vOut.wTangent = normalize(mat3(transpose(inverse(params.mModel))) * wTang.xyz);
-    vOut.texCoord = vTexCoordAndTang.xy;
+    float offsetLeft = -10.0f;
+    float offsetFront = -50.0f;
+    float offsetLow = -5.0f;
 
-    gl_Position   = params.mProjView * vec4(vOut.wPos, 1.0);
+    vOut.wPos     = vec3(res.x*2.0f + offsetLeft, texture(diffuseTexture, coord).x*10.0f + offsetLow, res.y*4.0f + offsetFront);
+    vOut.wNorm    = wNorm; 
+    vOut.wTangent = vec3(0.0f, 0.0f, 0.0f);
+    vOut.texCoord = coord; 
+
+    gl_Position   = params.mProjView * vec4(vOut.wPos, 1.0f);
 }

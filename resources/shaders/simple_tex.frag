@@ -4,7 +4,16 @@
 
 #include "common.h"
 
+float height = 64.0f;
+float width = 64.0f;
+
 layout(location = 0) out vec4 out_fragColor;
+
+layout(push_constant) uniform params_t
+{
+    mat4 mProjView;
+    mat4 mModel;
+} params;
 
 layout (location = 0 ) in VS_OUT
 {
@@ -21,6 +30,64 @@ layout(binding = 0, set = 0) uniform AppData
 
 layout(binding = 1) uniform sampler2D diffuseTexture;
 
+float shade2()
+{   
+    float offsetLeft = -10.0f;
+    float offsetFront = -50.0f;
+    float offsetLow = -5.0f;
+
+    vec3 globCoord = surf.wPos;
+
+    const vec3 mLightPos = Params.lightPos;
+    const vec3 start = globCoord;
+ 
+    const float h = 0.1f;
+    const vec3 dir = normalize(mLightPos - start);
+
+    float result = 0.0f;
+
+    vec3 current = start;
+    while (current.x >= offsetLeft  && current.x <= width*2.0f  + offsetLeft
+        && current.y >= offsetLow   && current.y <= 255.0f
+        && current.z >= offsetFront && current.z <= height*2 + offsetFront)
+    {
+        current += h*dir;
+        vec2 lol = vec2((current.x-offsetLeft)/(2.0f*width), (current.y-offsetFront)/(2.0f*height));
+        float kek = texture(diffuseTexture, lol).x*10.0f + offsetLow;
+
+        if (current.y <= kek)
+            result += 1.f;
+    }
+
+    const float minHits = 10.0f;
+    return (minHits - min(result, minHits))/minHits;
+}
+
+float shade()
+{
+    const vec3 mLightPos = Params.lightPos;
+
+    const vec3 start = vec3(surf.texCoord.x, textureLod(diffuseTexture, surf.texCoord, 0.0f).x, surf.texCoord.y);
+    const float h = 1.f/float(width + height);
+    const vec3 dir = normalize(mLightPos - start);
+
+    float result = 0;
+
+    vec3 current = start;
+    while (current.x >=  0 && current.x <= 1
+        && current.y >= -1 && current.y <= 1
+        && current.z >=  0 && current.z <= 1)
+    {
+        current += h*dir;
+
+        if (textureLod(diffuseTexture, current.xz, 0).r > current.y)
+            result += 1.f;
+    }
+
+    const float minHits = 10;
+    return (minHits - min(result, minHits))/minHits;
+}
+
 void main()
 {
     vec3 lightDir1 = normalize(Params.lightPos - surf.wPos);
@@ -35,5 +102,5 @@ void main()
     vec4 color2 = max(dot(N, lightDir2), 0.0f) * lightColor2;
     vec4 color_lights = mix(color1, color2, 0.5f);
 
-    out_fragColor = color_lights * vec4(texture(diffuseTexture, surf.texCoord).xyz, 1.0f);
+    out_fragColor = vec4(color_lights.xyz*max(shade2(), 0.5f), 1.0f);// * vec4(texture(diffuseTexture, surf.texCoord).xyz, 1.0f);
 }

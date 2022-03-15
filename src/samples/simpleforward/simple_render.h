@@ -15,11 +15,13 @@
 #include <string>
 #include <iostream>
 
+#include "bnoise_generator.h"
+
 class SimpleRender : public IRender
 {
 public:
   const std::string VERTEX_SHADER_PATH = "../resources/shaders/simple.vert";
-  const std::string FRAGMENT_SHADER_PATH = "../resources/shaders/simple.frag";
+  const std::string FRAGMENT_SHADER_PATH = "../resources/shaders/simple_tex.frag";
 
   SimpleRender(uint32_t a_width, uint32_t a_height);
   ~SimpleRender()  { Cleanup(); };
@@ -96,6 +98,28 @@ protected:
   VkBuffer m_ubo = VK_NULL_HANDLE;
   VkDeviceMemory m_uboAlloc = VK_NULL_HANDLE;
   void* m_uboMappedMem = nullptr;
+
+  void CreateLandscapeBuffers();
+
+  VkBuffer m_landVertBuf = VK_NULL_HANDLE;
+  VkBuffer m_landIndBuf = VK_NULL_HANDLE;
+  std::vector<uint32_t> indices;
+  VkDeviceMemory m_landMemAlloc = VK_NULL_HANDLE;
+
+  struct vertex
+  {
+    float posNorm[4];// (pos_x, pos_y, pos_z, compressed_normal)
+    float texCoordTang[4];// (u, v, compressed_tangent, unused_val)
+  };
+
+  BrownNoiseGenerator* noiseGen;
+
+  void SetupNoiseImage();
+  vk_utils::VulkanImageMem m_NoiseMapTex{};
+  VkSampler m_NoiseTexSampler = VK_NULL_HANDLE;
+
+  size_t NoiseMapWidth  = 64;
+  size_t NoiseMapHeight = 64;
 
   pipeline_data_t m_basicForwardPipeline {};
 

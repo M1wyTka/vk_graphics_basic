@@ -14,7 +14,7 @@ set(RENDER_SOURCE
         simple_render.cpp
         simple_render_tex.cpp)
 
-add_executable(simple_forward main.cpp ../../utils/glfw_window.cpp ${VK_UTILS_SRC} ${SCENE_LOADER_SRC} ${RENDER_SOURCE} ${IMGUI_SRC})
+add_executable(simple_forward main.cpp ../../utils/glfw_window.cpp ${VK_UTILS_SRC} ${SCENE_LOADER_SRC} ${RENDER_SOURCE} ${IMGUI_SRC} "bnoise_generator.h" "bnoise_generator.cpp")
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
     set_target_properties(simple_forward PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
