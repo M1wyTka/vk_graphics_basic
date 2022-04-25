@@ -3,6 +3,7 @@
 #extension GL_GOOGLE_include_directive : require
 
 #include "unpack_attributes.h"
+#include "common.h"
 
 float height = 64.0f;
 float width = 64.0f;
@@ -16,7 +17,6 @@ layout(push_constant) uniform params_t
     mat4 mModel;
 } params;
 
-
 layout (location = 0) out VS_OUT
 {
     vec3 wPos;
@@ -25,6 +25,11 @@ layout (location = 0) out VS_OUT
     vec2 texCoord;
 
 } vOut;
+
+layout(binding = 0, set = 0) uniform AppData
+{
+   UniformParams Params;
+};
 
 layout(binding = 1) uniform sampler2D diffuseTexture;
 
@@ -58,11 +63,9 @@ void main(void)
     //vec3 wNorm = vec3(0.0f, 1.0f, 0.0f);
     const vec4 wTang = vec4(DecodeNormal(floatBitsToInt(vTexCoordAndTang.z)), 0.0f);
 
-    float offsetLeft = -10.0f;
-    float offsetFront = -50.0f;
-    float offsetLow = -5.0f;
-
-    vOut.wPos     = vec3(res.x*2.0f + offsetLeft, texture(diffuseTexture, coord).x*10.0f + offsetLow, res.y*4.0f + offsetFront);
+    vOut.wPos     = vec3(res.x*Params.ampl.x                       + Params.offsetPos.x,
+                    texture(diffuseTexture, coord).x*Params.ampl.y + Params.offsetPos.y,
+                    res.y*Params.ampl.z                            + Params.offsetPos.z);
     vOut.wNorm    = wNorm; 
     vOut.wTangent = vec3(0.0f, 0.0f, 0.0f);
     vOut.texCoord = coord; 

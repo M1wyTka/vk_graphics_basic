@@ -15,7 +15,7 @@ layout(push_constant) uniform params_t
     mat4 mModel;
 } params;
 
-layout (location = 0 ) in VS_OUT
+layout (location = 0) in VS_OUT
 {
     vec3 wPos;
     vec3 wNorm;
@@ -32,10 +32,6 @@ layout(binding = 1) uniform sampler2D diffuseTexture;
 
 float shade2()
 {   
-    float offsetLeft = -10.0f;
-    float offsetFront = -50.0f;
-    float offsetLow = -5.0f;
-
     vec3 globCoord = surf.wPos;
 
     const vec3 mLightPos = Params.lightPos;
@@ -47,13 +43,15 @@ float shade2()
     float result = 0.0f;
 
     vec3 current = start;
-    while (current.x >= offsetLeft  && current.x <= width*2.0f  + offsetLeft
-        && current.y >= offsetLow   && current.y <= 255.0f
-        && current.z >= offsetFront && current.z <= height*2 + offsetFront)
+    while (current.x >= Params.offsetPos.x && current.x <= width*Params.ampl.x  + Params.offsetPos.x
+        && current.y >= Params.offsetPos.y && current.y <= 255.0f
+        && current.z >= Params.offsetPos.z && current.z <= height*Params.ampl.z + Params.offsetPos.z)
     {
         current += h*dir;
-        vec2 lol = vec2((current.x-offsetLeft)/(2.0f*width), (current.y-offsetFront)/(2.0f*height));
-        float kek = texture(diffuseTexture, lol).x*10.0f + offsetLow;
+        vec2 lol = vec2((current.x-Params.offsetPos.x)/(Params.ampl.x*width),
+                        (current.y-Params.offsetPos.z)/(Params.ampl.z*height));
+
+        float kek = texture(diffuseTexture, lol).x*Params.ampl.y + Params.offsetPos.y;
 
         if (current.y <= kek)
             result += 1.f;

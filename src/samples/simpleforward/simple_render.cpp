@@ -190,6 +190,9 @@ void SimpleRender::CreateUniformBuffer()
   m_uniforms.baseColor = LiteMath::float3(0.9f, 0.92f, 1.0f);
   m_uniforms.animateLightColor = true;
 
+  m_uniforms.offsetPos = LiteMath::float3(-10.0f, -5.0f, -50.0f); 
+  m_uniforms.ampl      = LiteMath::float3(2.0f, 10.0f, 4.0f); 
+
   UpdateUniformBuffer(0.0f);
 }
 
