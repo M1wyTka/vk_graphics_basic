@@ -484,15 +484,15 @@ void SimpleRender::Cleanup()
   }
 
   vk_utils::deleteImg(m_device, &m_NoiseMapTex);
-  if (m_NoiseTexSampler != VK_NULL_HANDLE)
-  {
-    vkDestroySampler(m_device, m_NoiseTexSampler, VK_NULL_HANDLE);
-  }
-  if (m_NoiseMapTex.mem != VK_NULL_HANDLE)
-  {
-    vkFreeMemory(m_device, m_NoiseMapTex.mem, nullptr);
-    m_NoiseMapTex.mem = VK_NULL_HANDLE;
-  }
+  //if (m_NoiseTexSampler != VK_NULL_HANDLE)
+  //{
+  //  vkDestroySampler(m_device, m_NoiseTexSampler, VK_NULL_HANDLE);
+  //}
+  //if (m_NoiseMapTex.mem != VK_NULL_HANDLE)
+  //{
+  //  vkFreeMemory(m_device, m_NoiseMapTex.mem, nullptr);
+  //  m_NoiseMapTex.mem = VK_NULL_HANDLE;
+  //}
 }
 
 void SimpleRender::ProcessInput(const AppInput &input)
@@ -671,6 +671,11 @@ void SimpleRender::SetupGUIElements()
     ImGui::Text("Changing bindings is not supported.");
     ImGui::Text("Vertex shader path: %s", VERTEX_SHADER_PATH.c_str());
     ImGui::Text("Fragment shader path: %s", FRAGMENT_SHADER_PATH.c_str());
+    ImGui::End();
+
+    ImGui::Begin("Landscape params");
+    ImGui::DragFloat3("Offset", m_uniforms.offsetPos.M, 0.01f, -100.0f, 100.0f);
+    ImGui::DragFloat3("Stretch", m_uniforms.ampl.M, 0.01f, 0.1f, 10.0f);
     ImGui::End();
   }
 
