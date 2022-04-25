@@ -99,6 +99,9 @@ void main()
     vec4 color1 = max(dot(N, lightDir1), 0.0f) * lightColor1;
     vec4 color2 = max(dot(N, lightDir2), 0.0f) * lightColor2;
     vec4 color_lights = mix(color1, color2, 0.5f);
-
-    out_fragColor = vec4(color_lights.xyz*max(shade2(), 0.5f), 1.0f);// * vec4(texture(diffuseTexture, surf.texCoord).xyz, 1.0f);
+    
+    if(Params.isVSM == 1)
+        out_fragColor = vec4(color_lights.xyz*max(shade2(), 0.5f), 1.0f);// * vec4(texture(diffuseTexture, surf.texCoord).xyz, 1.0f);
+    else
+        out_fragColor = color_lights * vec4(Params.baseColor, 1.0f);
 }

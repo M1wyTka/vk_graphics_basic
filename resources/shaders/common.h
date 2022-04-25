@@ -30,6 +30,7 @@ struct UniformParams
   vec3  offsetPos;
   float pad;
   vec3  ampl;
+  int  isVSM;
 };
 
 #endif //VK_GRAPHICS_BASIC_COMMON_H

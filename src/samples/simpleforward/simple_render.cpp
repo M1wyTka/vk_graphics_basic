@@ -192,6 +192,7 @@ void SimpleRender::CreateUniformBuffer()
 
   m_uniforms.offsetPos = LiteMath::float3(-10.0f, -5.0f, -50.0f); 
   m_uniforms.ampl      = LiteMath::float3(2.0f, 10.0f, 4.0f); 
+  m_uniforms.isVSM     = 1;
 
   UpdateUniformBuffer(0.0f);
 }
@@ -676,6 +677,7 @@ void SimpleRender::SetupGUIElements()
     ImGui::Begin("Landscape params");
     ImGui::DragFloat3("Offset", m_uniforms.offsetPos.M, 0.01f, -100.0f, 100.0f);
     ImGui::DragFloat3("Stretch", m_uniforms.ampl.M, 0.01f, 0.1f, 10.0f);
+    ImGui::DragInt("VSM", &m_uniforms.isVSM, 1.0f, 0, 1);
     ImGui::End();
   }
 
