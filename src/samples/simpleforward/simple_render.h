@@ -15,11 +15,15 @@
 #include <string>
 #include <iostream>
 
+#include <vk_quad.h>
+
 class SimpleRender : public IRender
 {
 public:
-  const std::string VERTEX_SHADER_PATH = "../resources/shaders/simple.vert";
-  const std::string FRAGMENT_SHADER_PATH = "../resources/shaders/simple.frag";
+  const std::string VERTEX_SHADER_PATH      = "../resources/shaders/simple.vert";
+  const std::string FRAGMENT_SHADER_PATH    = "../resources/shaders/simple.frag";
+  const std::string QUAD_VERTEX_SHADER_PATH = "../resources/shaders/quad3_vert.vert";
+  const std::string QUAD_FRAG_SHADER_PATH   = "../resources/shaders/my_quad.frag";
 
   SimpleRender(uint32_t a_width, uint32_t a_height);
   ~SimpleRender()  { Cleanup(); };
@@ -92,16 +96,33 @@ protected:
     LiteMath::float4x4 model;
   } pushConst2M;
 
+  struct
+  {
+    int isTM;
+    int TMType;
+  } pushConstTones;
+
   UniformParams m_uniforms {};
   VkBuffer m_ubo = VK_NULL_HANDLE;
   VkDeviceMemory m_uboAlloc = VK_NULL_HANDLE;
   void* m_uboMappedMem = nullptr;
 
   pipeline_data_t m_basicForwardPipeline {};
+  pipeline_data_t m_quadPipeline {};
 
   VkDescriptorSet m_dSet = VK_NULL_HANDLE;
   VkDescriptorSetLayout m_dSetLayout = VK_NULL_HANDLE;
   VkRenderPass m_screenRenderPass = VK_NULL_HANDLE; // main renderpass
+
+  VkDescriptorSet m_quadDS = VK_NULL_HANDLE;
+  VkDescriptorSetLayout m_quadDSLayout = VK_NULL_HANDLE;
+  VkRenderPass m_quadRenderPass = VK_NULL_HANDLE;
+
+  VkFramebuffer m_quadBuffer;
+  vk_utils::VulkanImageMem m_quadImage;
+  VkSampler m_quadSampler;
+  
+  std::shared_ptr<vk_utils::IQuad> m_pFSQuad;
 
   std::shared_ptr<vk_utils::DescriptorMaker> m_pBindings = nullptr;
 

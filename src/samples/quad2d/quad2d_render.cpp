@@ -62,7 +62,7 @@ void Quad2D_Render::InitVulkan(const char** a_instanceExtensions, uint32_t a_ins
   m_pCopyHelper = std::make_shared<vk_utils::SimpleCopyHelper>(m_physicalDevice, m_device, m_transferQueue, m_queueFamilyIDXs.graphics, 8*1024*1024);
 }
 
-void Quad2D_Render::InitPresentation(VkSurfaceKHR &a_surface)
+void Quad2D_Render::InitPresentation(VkSurfaceKHR &a_surface, bool)
 {
   m_surface = a_surface;
 
@@ -243,7 +243,6 @@ void Quad2D_Render::Cleanup()
 {
   m_pFSQuad     = nullptr; // smartptr delete it's resources
   CleanupPipelineAndSwapchain();
-
 
   if (m_presentationResources.imageAvailable != VK_NULL_HANDLE)
     vkDestroySemaphore(m_device, m_presentationResources.imageAvailable, nullptr);

@@ -77,6 +77,18 @@ void SimpleRender::InitPresentation(VkSurfaceKHR &a_surface, bool initGUI)
   VK_CHECK_RESULT(vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_presentationResources.imageAvailable));
   VK_CHECK_RESULT(vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_presentationResources.renderingFinished));
   m_screenRenderPass = vk_utils::createDefaultRenderPass(m_device, m_swapchain.GetFormat());
+  m_quadRenderPass   = vk_utils::createDefaultRenderPass(m_device, m_swapchain.GetFormat(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+
+  m_pFSQuad        = std::make_shared<vk_utils::QuadRenderer>(0, 0, m_width, m_height);
+  m_pFSQuad->Create(m_device,
+      (QUAD_VERTEX_SHADER_PATH + ".spv ").c_str(),
+      (QUAD_FRAG_SHADER_PATH + ".spv").c_str(),
+      vk_utils::RenderTargetInfo2D{ VkExtent2D{ m_width, m_height },
+      m_swapchain.GetFormat(),
+      VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+      VK_IMAGE_LAYOUT_UNDEFINED,
+      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR });
 
   std::vector<VkFormat> depthFormats = {
       VK_FORMAT_D32_SFLOAT,
@@ -88,6 +100,29 @@ void SimpleRender::InitPresentation(VkSurfaceKHR &a_surface, bool initGUI)
   vk_utils::getSupportedDepthFormat(m_physicalDevice, depthFormats, &m_depthBuffer.format);
   m_depthBuffer  = vk_utils::createDepthTexture(m_device, m_physicalDevice, m_width, m_height, m_depthBuffer.format);
   m_frameBuffers = vk_utils::createFrameBuffers(m_device, m_swapchain, m_screenRenderPass, m_depthBuffer.view);
+
+  m_quadImage.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  vk_utils::createImgAllocAndBind(m_device, m_physicalDevice,
+      m_width, m_height,
+      m_swapchain.GetFormat(),
+      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+      &m_quadImage, nullptr, nullptr);
+
+  m_quadSampler = vk_utils::createSampler(m_device);
+  {
+    std::vector<VkImageView> attachments = { m_quadImage.view, m_depthBuffer.view };
+
+    VkFramebufferCreateInfo framebufferInfo = {};
+    framebufferInfo.sType                   = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebufferInfo.renderPass              = m_quadRenderPass;
+    framebufferInfo.attachmentCount         = (uint32_t)attachments.size();
+    framebufferInfo.pAttachments            = attachments.data();
+    framebufferInfo.width                   = m_width;
+    framebufferInfo.height                  = m_height;
+    framebufferInfo.layers                  = 1;
+
+    VK_CHECK_RESULT(vkCreateFramebuffer(m_device, &framebufferInfo, nullptr, &m_quadBuffer));
+  }
 
   if(initGUI)
     m_pGUIRender = std::make_shared<ImGuiRender>(m_instance, m_device, m_physicalDevice, m_queueFamilyIDXs.graphics, m_graphicsQueue, m_swapchain);
@@ -128,16 +163,21 @@ void SimpleRender::CreateDevice(uint32_t a_deviceId)
 void SimpleRender::SetupSimplePipeline()
 {
   std::vector<std::pair<VkDescriptorType, uint32_t> > dtypes = {
-      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,             1}
+      { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1 },
+      { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 }
   };
 
   if(m_pBindings == nullptr)
-    m_pBindings = std::make_shared<vk_utils::DescriptorMaker>(m_device, dtypes, 1);
+    m_pBindings = std::make_shared<vk_utils::DescriptorMaker>(m_device, dtypes, 2);
 
   m_pBindings->BindBegin(VK_SHADER_STAGE_FRAGMENT_BIT);
   m_pBindings->BindBuffer(0, m_ubo, VK_NULL_HANDLE, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
   m_pBindings->BindEnd(&m_dSet, &m_dSetLayout);
 
+  m_pBindings->BindBegin(VK_SHADER_STAGE_FRAGMENT_BIT);
+  m_pBindings->BindImage(0, m_quadImage.view, m_quadSampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+  m_pBindings->BindEnd(&m_quadDS, &m_quadDSLayout);
+  
   // if we are recreating pipeline (for example, to reload shaders)
   // we need to cleanup old pipeline
   if(m_basicForwardPipeline.layout != VK_NULL_HANDLE)
@@ -160,6 +200,7 @@ void SimpleRender::SetupSimplePipeline()
   maker.LoadShaders(m_device, shader_paths);
 
   m_basicForwardPipeline.layout = maker.MakeLayout(m_device, {m_dSetLayout}, sizeof(pushConst2M));
+
   maker.SetDefaultState(m_width, m_height);
 
   m_basicForwardPipeline.pipeline = maker.MakePipeline(m_device, m_pScnMgr->GetPipelineVertexInputStateCreateInfo(),
@@ -200,7 +241,7 @@ void SimpleRender::UpdateUniformBuffer(float a_time)
 }
 
 void SimpleRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, VkFramebuffer a_frameBuff,
-                                            VkImageView, VkPipeline a_pipeline)
+                                            VkImageView a_imgView, VkPipeline a_pipeline)
 {
   vkResetCommandBuffer(a_cmdBuff, 0);
 
@@ -217,8 +258,8 @@ void SimpleRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, VkFramebu
   {
     VkRenderPassBeginInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = m_screenRenderPass;
-    renderPassInfo.framebuffer = a_frameBuff;
+    renderPassInfo.renderPass = m_quadRenderPass;
+    renderPassInfo.framebuffer = m_quadBuffer;
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = m_swapchain.GetExtent();
 
@@ -258,6 +299,11 @@ void SimpleRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, VkFramebu
     vkCmdEndRenderPass(a_cmdBuff);
   }
 
+  float scaleAndOffset[4] = { -1.0f, -1.0f, 0.0f, 0.0f };
+
+  m_pFSQuad->SetRenderTarget(a_imgView);
+  m_pFSQuad->DrawCmd(a_cmdBuff, m_quadDS, scaleAndOffset);
+
   VK_CHECK_RESULT(vkEndCommandBuffer(a_cmdBuff));
 }
 
@@ -295,6 +341,34 @@ void SimpleRender::CleanupPipelineAndSwapchain()
   {
     vkDestroyRenderPass(m_device, m_screenRenderPass, nullptr);
     m_screenRenderPass = VK_NULL_HANDLE;
+  }
+
+  m_pFSQuad = nullptr;// smartptr delete it's resources
+  vkDestroyFramebuffer(m_device, m_quadBuffer, nullptr);
+  vkDestroySampler(m_device, m_quadSampler, nullptr);
+
+  if (m_quadImage.view != VK_NULL_HANDLE)
+  {
+    vkDestroyImageView(m_device, m_quadImage.view, nullptr);
+    m_quadImage.view = VK_NULL_HANDLE;
+  }
+
+  if (m_quadImage.image != VK_NULL_HANDLE)
+  {
+    vkDestroyImage(m_device, m_quadImage.image, nullptr);
+    m_quadImage.image = VK_NULL_HANDLE;
+  }
+
+  if (m_quadImage.mem != VK_NULL_HANDLE)
+  {
+    vkFreeMemory(m_device, m_quadImage.mem, nullptr);
+    m_quadImage.mem = VK_NULL_HANDLE;
+  }
+
+  if (m_quadRenderPass != VK_NULL_HANDLE)
+  {
+    vkDestroyRenderPass(m_device, m_quadRenderPass, nullptr);
+    m_quadRenderPass = VK_NULL_HANDLE;
   }
 
   m_swapchain.Cleanup();
@@ -427,6 +501,15 @@ void SimpleRender::ProcessInput(const AppInput &input)
   {
 #ifdef WIN32
     std::system("cd ../resources/shaders && python compile_simple_render_shaders.py");
+    m_pFSQuad = std::make_shared<vk_utils::QuadRenderer>(0, 0, m_width, m_height);
+    m_pFSQuad->Create(m_device,
+      (QUAD_VERTEX_SHADER_PATH + ".spv ").c_str(),
+      (QUAD_FRAG_SHADER_PATH + ".spv").c_str(),
+      vk_utils::RenderTargetInfo2D{ VkExtent2D{ m_width, m_height },
+        m_swapchain.GetFormat(),
+        VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR });
 #else
     std::system("cd ../resources/shaders && python3 compile_simple_render_shaders.py");
 #endif
