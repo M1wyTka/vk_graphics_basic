@@ -96,11 +96,7 @@ protected:
     LiteMath::float4x4 model;
   } pushConst2M;
 
-  struct
-  {
-    int isTM;
-    int TMType;
-  } pushConstTones;
+  int TMType{1};
 
   UniformParams m_uniforms {};
   VkBuffer m_ubo = VK_NULL_HANDLE;

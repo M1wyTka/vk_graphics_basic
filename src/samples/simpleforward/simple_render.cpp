@@ -200,7 +200,6 @@ void SimpleRender::SetupSimplePipeline()
   maker.LoadShaders(m_device, shader_paths);
 
   m_basicForwardPipeline.layout = maker.MakeLayout(m_device, {m_dSetLayout}, sizeof(pushConst2M));
-
   maker.SetDefaultState(m_width, m_height);
 
   m_basicForwardPipeline.pipeline = maker.MakePipeline(m_device, m_pScnMgr->GetPipelineVertexInputStateCreateInfo(),
@@ -296,8 +295,14 @@ void SimpleRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, VkFramebu
       vkCmdDrawIndexed(a_cmdBuff, mesh_info.m_indNum, 1, mesh_info.m_indexOffset, mesh_info.m_vertexOffset, 0);
     }
 
+    // CRUTCH, to escape extra work
+    pushConst2M.projView[0][0] = static_cast<float>(TMType);
+
     vkCmdEndRenderPass(a_cmdBuff);
   }
+
+  VkShaderStageFlags stageFlags = (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+  vkCmdPushConstants(a_cmdBuff, m_basicForwardPipeline.layout, stageFlags, 0, sizeof(pushConst2M), &pushConst2M);
 
   float scaleAndOffset[4] = { -1.0f, -1.0f, 0.0f, 0.0f };
 
@@ -653,6 +658,10 @@ void SimpleRender::SetupGUIElements()
     ImGui::Text("Changing bindings is not supported.");
     ImGui::Text("Vertex shader path: %s", VERTEX_SHADER_PATH.c_str());
     ImGui::Text("Fragment shader path: %s", FRAGMENT_SHADER_PATH.c_str());
+    ImGui::End();
+
+    ImGui::Begin("Tonemapping");
+    ImGui::DragInt("Type", &TMType, 1.0f, 0, 6);
     ImGui::End();
   }
 
