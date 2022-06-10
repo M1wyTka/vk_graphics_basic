@@ -22,6 +22,7 @@ typedef float4x4     mat4;
 struct UniformParams
 {
   mat4  lightMatrix;
+  mat4	cam_transform;
   vec3  lightPos;
   float time;
   vec3  baseColor;

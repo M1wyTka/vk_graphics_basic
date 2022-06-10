@@ -5,6 +5,11 @@
 #include <vk_pipeline.h>
 #include <vk_buffers.h>
 
+#include <random>
+
+static std::default_random_engine rndEngine;
+static std::uniform_real_distribution<float> randUNorm(0.0f, 1.0f);
+
 void SimpleRender::SetupOffscreenFramebuffer()
 {
   m_midPassFrameBuf.width    = m_width;
@@ -333,8 +338,8 @@ void SimpleRender::CreateDevice(uint32_t a_deviceId)
 void SimpleRender::SetupSimplePipeline()
 {
   std::vector<std::pair<VkDescriptorType, uint32_t>> dtypes = {
-    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
-    { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3 }
+    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 },
+    { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 }
   };
 
   if (m_pBindings == nullptr)
@@ -348,6 +353,8 @@ void SimpleRender::SetupSimplePipeline()
   m_pBindings->BindImage(0, m_midPassFrameBuf.position.view, m_colorSampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   m_pBindings->BindImage(1, m_midPassFrameBuf.norm.view, m_colorSampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   m_pBindings->BindImage(2, m_midPassFrameBuf.albedo.view, m_colorSampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+  m_pBindings->BindImage(3, m_NoiseMapTex.view, m_NoiseTexSampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+  m_pBindings->BindBuffer(4, m_ssaoKernel, VK_NULL_HANDLE, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
   m_pBindings->BindEnd(&m_dResolveSet, &m_dResolveSetLayout);
 
   // if we are recreating pipeline (for example, to reload shaders)
@@ -416,6 +423,24 @@ void SimpleRender::SetupSimplePipeline()
   m_resolvePipeline.pipeline = maker.MakePipeline(m_device, m_pScnMgr->GetPipelineVertexInputStateCreateInfo(), m_screenRenderPass, { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR });
 }
 
+void SimpleRender::SetupNoiseImage()
+{
+  noiseGen = new BrownNoiseGenerator(3, 0.5f, 0);
+  std::vector<uint32_t> noisePixels;
+  noiseGen->GenerateBrownNoiseMap(noisePixels, m_width, m_height);
+  unsigned char *pixels = reinterpret_cast<unsigned char *>(noisePixels.data());
+
+  vk_utils::deleteImg(m_device, &m_NoiseMapTex);
+  if (m_NoiseTexSampler != VK_NULL_HANDLE)
+  {
+    vkDestroySampler(m_device, m_NoiseTexSampler, VK_NULL_HANDLE);
+  }
+
+  int mipLevels     = 1;
+  m_NoiseMapTex     = allocateColorTextureFromDataLDR(m_device, m_physicalDevice, pixels, m_width, m_height, mipLevels, VK_FORMAT_R8G8B8A8_UNORM, m_pScnMgr->GetCopyHelper());
+  m_NoiseTexSampler = vk_utils::createSampler(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK);
+}
+
 void SimpleRender::CreateUniformBuffer()
 {
   VkMemoryRequirements memReq;
@@ -437,6 +462,39 @@ void SimpleRender::CreateUniformBuffer()
   m_uniforms.lightPos          = LiteMath::float3(0.0f, 1.0f, 1.0f);
   m_uniforms.baseColor         = LiteMath::float3(0.9f, 0.92f, 1.0f);
   m_uniforms.animateLightColor = true;
+
+  m_uniforms.cam_transform = LiteMath::lookAt(m_cam.pos, m_cam.lookAt, m_cam.up);
+
+
+  VkMemoryRequirements ssaomemReq;
+
+   m_ssaoKernel = vk_utils::createBuffer(m_device,
+    sizeof(float)*4*SSAO_KERNEL_SIZE,
+    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+    &ssaomemReq);
+
+   VkMemoryAllocateInfo ssaoallocateInfo = {};
+   ssaoallocateInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+   ssaoallocateInfo.pNext                = nullptr;
+   ssaoallocateInfo.allocationSize       = ssaomemReq.size;
+   ssaoallocateInfo.memoryTypeIndex      = vk_utils::findMemoryType(ssaomemReq.memoryTypeBits,
+     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+     m_physicalDevice);
+   VK_CHECK_RESULT(vkAllocateMemory(m_device, &ssaoallocateInfo, nullptr, &m_ssaoKernelAlloc));
+
+   VK_CHECK_RESULT(vkBindBufferMemory(m_device, m_ssaoKernel, m_ssaoKernelAlloc, 0));
+
+
+   std::vector<LiteMath::float4> ssaoKernel(SSAO_KERNEL_SIZE);
+   for (uint32_t i = 0; i < SSAO_KERNEL_SIZE; ++i)
+   {
+     auto sample =
+       LiteMath::normalize(float3(randUNorm(rndEngine) * 2.f - 1.f, randUNorm(rndEngine) * 2.f - 1.f, randUNorm(rndEngine)));
+     const float scale = static_cast<float>(i) / static_cast<float>(SSAO_KERNEL_SIZE);
+     sample *= LiteMath::lerp(0.1f, 1.0f, randUNorm(rndEngine) * scale * scale);
+     ssaoKernel[i] = LiteMath::float4(sample.x, sample.y, sample.z, 0.0f);
+   }
+   m_pScnMgr->GetCopyHelper()->UpdateBuffer(m_ssaoKernel, 0, ssaoKernel.data(), ssaoKernel.size() * sizeof(ssaoKernel[0]));
 
   UpdateUniformBuffer(0.0f);
 }
@@ -839,6 +897,23 @@ void SimpleRender::Cleanup()
     vkDestroyInstance(m_instance, nullptr);
     m_instance = VK_NULL_HANDLE;
   }
+
+  vk_utils::deleteImg(m_device, &m_NoiseMapTex);
+  if (m_NoiseTexSampler != VK_NULL_HANDLE)
+  {
+    vkDestroySampler(m_device, m_NoiseTexSampler, VK_NULL_HANDLE);
+  }
+  if (m_NoiseMapTex.mem != VK_NULL_HANDLE)
+  {
+    vkFreeMemory(m_device, m_NoiseMapTex.mem, nullptr);
+    m_NoiseMapTex.mem = VK_NULL_HANDLE;
+  }
+
+  if (m_ssaoKernel != VK_NULL_HANDLE)
+  {
+    vkDestroyBuffer(m_device, m_ssaoKernel, nullptr);
+    m_ssaoKernel = VK_NULL_HANDLE;
+  }
 }
 
 void SimpleRender::ProcessInput(const AppInput &input)
@@ -850,9 +925,9 @@ void SimpleRender::ProcessInput(const AppInput &input)
   if (input.keyPressed[GLFW_KEY_B])
   {
 #ifdef WIN32
-    std::system("cd ../resources/shaders && python compile_simple_render_shaders.py");
+    std::system("cd ../resources/shaders && python compile_deferred_shaders.py");
 #else
-    std::system("cd ../resources/shaders && python3 compile_simple_render_shaders.py");
+    std::system("cd ../resources/shaders && python3 compile_deferred_shaders.py");
 #endif
 
     SetupSimplePipeline();
@@ -888,6 +963,7 @@ void SimpleRender::LoadScene(const char *path, bool transpose_inst_matrices)
   m_pScnMgr->LoadSceneXML(path, transpose_inst_matrices);
 
   CreateUniformBuffer();
+  SetupNoiseImage();
   SetupSimplePipeline();
 
   CreateLightSpheres();

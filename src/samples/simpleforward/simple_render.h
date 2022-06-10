@@ -15,6 +15,8 @@
 #include <string>
 #include <iostream>
 
+#include "noise_generator.h"
+
 class SimpleRender : public IRender
 {
 public:
@@ -140,6 +142,20 @@ protected:
   VkBuffer m_ubo            = VK_NULL_HANDLE;
   VkDeviceMemory m_uboAlloc = VK_NULL_HANDLE;
   void *m_uboMappedMem      = nullptr;
+
+  static constexpr uint32_t SSAO_KERNEL_SIZE = 64;
+  VkBuffer m_ssaoKernel                      = VK_NULL_HANDLE;
+  VkDeviceMemory m_ssaoKernelAlloc           = VK_NULL_HANDLE;
+  void *m_ssaoKernelMappedMem                = nullptr;
+
+  BrownNoiseGenerator *noiseGen;
+
+  void SetupNoiseImage();
+  vk_utils::VulkanImageMem m_NoiseMapTex{};
+  VkSampler m_NoiseTexSampler = VK_NULL_HANDLE;
+
+  size_t NoiseMapWidth  = 64;
+  size_t NoiseMapHeight = 64;
 
   pipeline_data_t m_resolvePipeline{};
   pipeline_data_t m_splitImgPipeline{};
