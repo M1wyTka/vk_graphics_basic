@@ -199,7 +199,7 @@ protected:
   void DrawFrameSimple();
 
   void SetupOffscreenFramebuffer();
-
+  
   void CreateInstance();
   void CreateDevice(uint32_t a_deviceId);
 

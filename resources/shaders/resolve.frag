@@ -30,52 +30,41 @@ layout (location = 0) out vec4 outFragcolor;
 
 float SSAO()
 {
-    const uvec2 renderingRes = uvec2(1024, 1024);
-    const vec2 fragPos = gl_FragCoord.xy / vec2(renderingRes);
+    uvec2 renderingRes = uvec2(1024, 1024);
+    vec2 fragPos = gl_FragCoord.xy / vec2(renderingRes);
     
-	const vec3 cPosition = textureLod(samplerPosition, fragPos, 0).xyz;
-	
-	// add to cam conversion
+	vec3 Position = textureLod(samplerPosition, fragPos, 0).xyz;
 
+	ivec2 noiseRes = textureSize(samplerNoise, 0);
+	vec2 noiseScale = vec2(renderingRes)/vec2(noiseRes);  
+    vec3 randomVec = vec3(textureLod(samplerNoise, fragPos*noiseScale, 0).xy, 0);
 
-	//if (-cPosition.z > 100)
-	//{
-	//	//out_fragColor = 1.0;
-	//	return 1.0f;
-	//}
-
-
-	const ivec2 noiseRes = textureSize(samplerNoise, 0);
-	const vec2 noiseScale = vec2(renderingRes)/vec2(noiseRes);  
-    const vec3 randomVec = vec3(textureLod(samplerNoise, fragPos*noiseScale, 0).xy, 0);
-
-    const vec3 cNormal = textureLod(samplerNormal, fragPos, 0).xyz;
-    const vec3 cTangent = normalize(randomVec - cNormal * dot(randomVec, cNormal));
-	const vec3 cBitangent = cross(cTangent, cNormal);
-	const mat3 TBN = mat3(cTangent, cBitangent, cNormal);
+    vec3 Normal = textureLod(samplerNormal, fragPos, 0).xyz;
+    vec3 Tangent = normalize(randomVec - Normal * dot(randomVec, Normal));
+	vec3 Bitangent = cross(Tangent, Normal);
+	mat3 TBN = mat3(Tangent, Bitangent, Normal);
 
 
     float occlusion = 0.0f;
-	// remove banding
-	const float bias = 0.025f;
+
+	float bias = 0.025f;
 	for(uint i = 0; i < SSAO_KERNEL_SIZE; i++)
 	{
-		const vec3 tSampleDir = uboSSAOKernel.samples[i].xyz;
-		const vec3 cSampleDir = (TBN * tSampleDir) * SSAO_RADIUS;
-		const vec3 cSamplePos = cPosition + cSampleDir;
+		vec3 spSampleDir = uboSSAOKernel.samples[i].xyz;
+		vec3 SampleDir = (TBN * spSampleDir) * SSAO_RADIUS;
+		vec3 SamplePos = Position + SampleDir;
 
-		// project
-		vec4 offset = vec4(cSamplePos, 1.0f);
+		vec4 offset = vec4(SamplePos, 1.0f);
 		offset = params.mProjView * offset;
 		offset /= offset.w;
 		offset.xyz = offset.xyz * 0.5f + 0.5f;
 
-		vec3 cSample = texture(samplerPosition, offset.xy).xyz;
+		vec3 Sample = texture(samplerPosition, offset.xy).xyz;
 
-		float rangeCheck = smoothstep(0.0f, 1.0f, SSAO_RADIUS / abs(cPosition.z - cSample.z));
-		occlusion += float(cSample.z >= cPosition.z + bias)
+		float rangeCheck = smoothstep(0.0f, 1.0f, SSAO_RADIUS / abs(Position.z - Sample.z));
+		occlusion += float(Sample.z >= Position.z + bias)
 			// MAGICAL HACK
-			* float(normalize(tSampleDir).z >= 0.5)
+			* float(normalize(spSampleDir).z >= 0.5)
 			* rangeCheck;
 	}
 
@@ -88,8 +77,6 @@ void main()
     vec3 fragPos = texture(samplerPosition, uv).rgb;
 	vec3 normal  = texture(samplerNormal, uv).rgb;
 	vec4 albedo  = texture(samplerAlbedo, uv);
-
-    vec4 lol = texture(samplerNoise, uv);
     
     float lightDist = distance(params.lightPos.xyz, fragPos);
     vec3 lightDir   = normalize(params.lightPos.xyz - fragPos);
@@ -106,16 +93,10 @@ void main()
 
     vec4 lightColor = max(dot(normal, lightDir), 0.0f) * weightedColor;
 
-    vec4 keke = uboSSAOKernel.samples[0];
-
-	
 	bool ssao = true;
-
 	float occlusion = 1.0;
-
 	if(ssao)
 	   occlusion = 1.0 - (SSAO() / float(SSAO_KERNEL_SIZE));
 
     outFragcolor = lightColor * albedo * occlusion;
-	//out_fragColor = 1.0 - (occlusion / float(SSAO_KERNEL_SIZE));
 } 
